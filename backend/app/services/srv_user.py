@@ -1,14 +1,15 @@
 from fastapi.security import HTTPBearer
 from fastapi.exceptions import HTTPException
 from fastapi_sqlalchemy import db
-from fastapi import Depends, status
+from fastapi import Depends, status, UploadFile
 from pydantic import ValidationError
+from uuid import uuid4
 import jwt
 
 from app.schemas.sche_user import UserRegisterRequest, UserUpdateRequest, UserUpdateMeRequest, UserChangePasswordRequest
 from app.models.user_model import User
 from app.core.security import get_password_hash, verify_password
-from app.core.config import settings
+from app.core.config import settings, s3_avatar
 from app.schemas.sche_token import TokenPayload
 
 class UserService(object):
@@ -116,6 +117,24 @@ class UserService(object):
         user.is_admin = user_data.is_admin if user_data.is_admin is not None else user.is_admin
         db.session.commit()
         return user
+    
+    @staticmethod
+    def upload_avatar(avatar, current_user: User):
+        try:
+            file_ext = avatar.filename.split('.')[-1]
+            key = f"avatars/{current_user.id}.{file_ext}"
+            s3_avatar.upload_fileobj(avatar.file, settings.AWS_BUCKET_NAME, key, ExtraArgs={
+                'ACL': 'public-read',
+                'ContentType': 'image/jpeg'
+            })
+            url = f"https://{settings.AWS_BUCKET_NAME}.s3.amazonaws.com/{key}"
+
+            current_user.avatar = url
+            db.session.commit()
+            return url
+
+        except Exception as e:
+            return {"error": str(e)}
     
     @staticmethod
     def delete(user_id: int):

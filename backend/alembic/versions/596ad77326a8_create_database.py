@@ -1,8 +1,8 @@
 """create database
 
-Revision ID: 1be53091bf91
+Revision ID: 596ad77326a8
 Revises: 
-Create Date: 2025-03-20 22:07:38.969491
+Create Date: 2025-05-10 19:27:53.526248
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '1be53091bf91'
+revision: str = '596ad77326a8'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -30,6 +30,7 @@ def upgrade() -> None:
     sa.Column('full_name', sa.String(length=100), nullable=True),
     sa.Column('is_active', sa.Boolean(), nullable=True),
     sa.Column('is_admin', sa.Boolean(), nullable=True),
+    sa.Column('avatar', sa.String(length=255), nullable=True),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('email'),
     sa.UniqueConstraint('user_name')
@@ -38,8 +39,9 @@ def upgrade() -> None:
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('create_at', sa.DateTime(), nullable=True),
     sa.Column('update_at', sa.DateTime(), nullable=True),
-    sa.Column('titile', sa.String(length=255), nullable=True),
+    sa.Column('title', sa.String(length=255), nullable=True),
     sa.Column('content', sa.Text(), nullable=True),
+    sa.Column('like_count', sa.Integer(), nullable=True),
     sa.Column('author_id', sa.Integer(), nullable=True),
     sa.ForeignKeyConstraint(['author_id'], ['user.id'], ),
     sa.PrimaryKeyConstraint('id')

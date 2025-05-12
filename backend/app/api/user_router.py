@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, status, UploadFile, File
 from fastapi.exceptions import HTTPException
 from fastapi_sqlalchemy import db
 from typing import Any
@@ -94,6 +94,22 @@ def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.detail
         )
+
+@router.put('/me/avatar', dependencies=[Depends(login_required)])
+def upload_avatar(
+    avatar: UploadFile = File(...),
+    current_user: User = Depends(UserService.get_current_user),
+    user_service: UserService = Depends()
+):
+    try:
+        avatar_url = user_service.upload_avatar(avatar, current_user)
+        return avatar_url
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=e.detail
+        )
+
     
 @router.put('/{user_id}', dependencies=[Depends(admin_required)], response_model=DataResponse[UserItemResponse])
 def update(
