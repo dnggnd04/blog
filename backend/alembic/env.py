@@ -12,8 +12,10 @@ import sys
 import os
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # alembic_cfg = Config("alembic.ini")
-load_dotenv(os.path.join(BASE_DIR, 'app\.env'))
+load_dotenv(os.path.join(os.path.join(BASE_DIR, 'app'), '.env'))
 sys.path.append(BASE_DIR)
+
+print(os.getenv('DATABASE_URL'))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
