@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { sendRequest } from '../../utils/axiosConfig';
 import { useNavigate } from 'react-router-dom';
 
 function Register() {
@@ -11,18 +11,23 @@ function Register() {
 
     const handleSubmit = (event) => {
         event.preventDefault();
-        axios
-            .post('http://localhost:8000/register', { user_name, password, full_name, email })
-            .then((response) => {
-                // Xử lý đăng ký thành công
-                console.log('Đăng ký thành công:', response.data);
-                navigate('/login'); // Chuyển hướng đến trang đăng nhập
-            })
-            .catch((error) => {
-                // Xử lý lỗi đăng ký
-                console.error('Lỗi đăng ký:', error);
-                alert('Đăng ký thất bại. Vui lòng thử lại.');
-            });
+        const callApi = async () => {
+            try {
+                const registerRequest = {
+                    full_name: full_name,
+                    user_name: user_name,
+                    email: email,
+                    password: password
+                }
+                await sendRequest('/register', 'post', registerRequest)
+                console.log('Đăng ký thành công:');
+                navigate('/login');
+            } catch (error) {
+                console.error('Lỗi khi gọi API:', error);
+            }
+        };
+
+        callApi()
     };
 
     return (

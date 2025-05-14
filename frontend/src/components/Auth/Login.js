@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import { sendRequest } from '../../utils/axiosConfig';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 function Login() {
@@ -11,19 +11,25 @@ function Login() {
     
     const handleSubmit = (event) => {
         event.preventDefault();
-        axios
-            .post('http://localhost:8000/login', { user_name, password })
-            .then((response) => {
-                // Lưu trữ access_token vào LocalStorage
-                localStorage.setItem('access_token', response.data.data.access_token);
+        const callApi = async () => {
+            try {
+                const loginRequest = {
+                    user_name: user_name,
+                    password: password
+                }
+                const response = await sendRequest('/login', 'post', loginRequest)
+                console.log(response);
+                
+                localStorage.setItem('access_token', response.data.access_token);
                 console.log('Đăng nhập thành công:');
                 const from = location.state?.from?.pathname || '/'; // Lấy đường dẫn ban đầu
                 navigate(from, { replace: true }); // Chuyển hướng về đường dẫn ban đầu
-            })
-            .catch((error) => {
-                console.error('Lỗi đăng nhập:', error);
-                alert('Tên đăng nhập hoặc mật khẩu không đúng.');
-            });
+            } catch (error) {
+                console.error('Lỗi khi gọi API:', error);
+            }
+        };
+
+        callApi()
     };
 
     return (

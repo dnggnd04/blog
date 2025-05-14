@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api, { sendRequest } from '../../utils/axiosConfig';
 import PostDetail from './PostDetail';
+import websocketUrl from '../../utils/websocketConfig'
 
 function PostDetailContainer() {
     const { id } = useParams();
@@ -13,12 +14,14 @@ function PostDetailContainer() {
         const callApi = async (id) => {
             try {
                 const res = await Promise.all([
-                    api.get(`/posts/${id}`),
-                    api.get(`/posts/${id}/comments`),
+                    sendRequest(`/posts/${id}`),
+                    sendRequest(`/posts/${id}/comments`)
                 ]);
-                setPost(res[0].data.data);
-                setLikes(res[0].data.data.like_count || 0);
-                const temp_comments = res[1].data.data
+                console.log(res);
+                
+                setPost(res[0].data);
+                setLikes(res[0].data.like_count || 0);
+                const temp_comments = res[1].data
                 setComments(temp_comments.reverse() || []);
             } catch (error) {
                 console.error('Lỗi khi gọi API:', error);
@@ -26,7 +29,7 @@ function PostDetailContainer() {
         };
         callApi(id)
 
-        const socket = new WebSocket(`ws://localhost:8000/ws`);
+        const socket = new WebSocket(`${websocketUrl}/ws`);
 
         socket.onmessage = (event) => {
             try {

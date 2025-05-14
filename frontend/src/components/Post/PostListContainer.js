@@ -4,6 +4,7 @@ import { sendRequest } from '../../utils/axiosConfig';
 import PostList from './PostList';
 import styled from 'styled-components';
 import CreatePost from './CreatePost';
+import websocketUrl from '../../utils/websocketConfig'
 
 const PostListContainerWrapper = styled.div`
     display: flex;
@@ -38,7 +39,7 @@ function PostListContainer() {
 
 		callApi()
 
-		const socket = new WebSocket(`ws://localhost:8000/ws`);
+		const socket = new WebSocket(`${websocketUrl}/ws`);
 
         socket.onmessage = (event) => {
             try {
