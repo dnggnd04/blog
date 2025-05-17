@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     PROJECT_NAME = os.getenv("PROJECT_NAME", 'FastAPI Project')
     SECRET_KEY = os.getenv("SECRET_KEY", 'secret')
     API_PREFIX = os.getenv("API_PREFIX", '')
+    WEBSOCKET_PREFIX = os.getenv("WEBSOCKET_PREFIX", '')
     BACKEND_CORS_ORIGINS = ["*"]
     DATABASE_URL = os.getenv("DATABASE_URL", '')
     ACCESS_TOKEN_EXPIRE_SECONDS : int = 60 * 60 * 24 * 7
