@@ -46,18 +46,18 @@ jobs:
 
     - name: Install Python dependencies
       run: |
-        cd blog/backend
+        cd backend
         pip3 install -r requirements.txt
 
     - name: Run tests
       run: |
-        cd blog/backend
+        cd backend
         pytest
 
     - name: Build Docker image
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
-        cd blog/backend
+        cd backend
         docker build -t fastapi-app:latest .
 
     - name: Deploy to EC2
@@ -75,18 +75,18 @@ jobs:
 
       - name: Install Node.js dependencies
         run: |
-          cd blog/frontend
+          cd frontend
           npm install
 
       - name: Run tests
         run: |
-          cd blog/frontend
+          cd frontend
           npm test -- --watchAll=false
 
       - name: Build Docker image
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          cd blog/frontend
+          cd frontend
           docker build -t react-app:latest .
 
       - name: Deploy to EC2
