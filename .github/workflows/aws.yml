@@ -76,7 +76,7 @@ jobs:
       - name: Install Node.js dependencies
         run: |
           cd frontend
-          npm install
+          npm install --no-optional
 
       - name: Run tests
         run: |
