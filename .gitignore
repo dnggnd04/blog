@@ -29,3 +29,6 @@ pnpm-debug.log*
 coverage/
 alembic/versions/*
 !.gitkeep
+*.swp
+*.swo
+*.swx

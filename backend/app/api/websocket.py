@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, WebSocket, WebSocketDisconnect
 from typing import List, Dict
 
-router = APIRouter(tags=["WebSocket"])
+websocket_router = APIRouter(tags=["WebSocket"])
 
 class ConnectionManager:
     def __init__(self):
@@ -17,23 +17,17 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
 
-    async def like(self):
-        self.like_count += 1
-        await self.broadcast()
-
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
             await connection.send_json(message)
 
 manager = ConnectionManager()
 
-@router.websocket("/ws")
+@websocket_router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect_post(websocket)
     try:
         while True:
             data = await websocket.receive_text()
-            if data == "like":
-                await manager.like()
     except WebSocketDisconnect:
         manager.disconnect(websocket)

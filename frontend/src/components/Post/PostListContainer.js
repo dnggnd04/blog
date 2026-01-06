@@ -39,10 +39,12 @@ function PostListContainer() {
 
 		callApi()
 
-		const socket = new WebSocket(`${websocketUrl}/ws`);
+                const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+                const wsUrl = `${protocol}://${window.location.host}/ws`;
+		const socket = new WebSocket(wsUrl);
 
-        socket.onmessage = (event) => {
-            try {
+                socket.onmessage = (event) => {
+                         try {
 				const data = JSON.parse(event.data);
 
 				if (data.type === 'like') {
@@ -54,10 +56,14 @@ function PostListContainer() {
 						)
 					);
 				}
-            } catch (error) {
-                console.error('Lỗi xử lý WebSocket:', error);
-            }
-        };
+                         } catch (error) {
+                                console.error('Lỗi xử lý WebSocket:', error);
+                         }
+                  };
+
+                  return () => {
+                         socket.close();
+                  }
 
 	}, []);
 

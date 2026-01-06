@@ -10,6 +10,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
 from app.api.api_router import router
+from app.api.websocket import websocket_router
 
 def get_application():
     application = FastAPI(
@@ -28,6 +29,7 @@ def get_application():
     application.add_middleware(DBSessionMiddleware, db_url=str(os.getenv('DATABASE_URL')))
     application.include_router(router, prefix=settings.API_PREFIX)
     # application.add_exception_handler()
+    application.include_router(websocket_router, prefix=settings.WEBSOCKET_PREFIX)
 
     return application
 

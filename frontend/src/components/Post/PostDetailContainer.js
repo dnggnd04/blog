@@ -29,12 +29,14 @@ function PostDetailContainer() {
         };
         callApi(id)
 
-        const socket = new WebSocket(`${websocketUrl}/ws`);
+        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+        const wsUrl = `${protocol}://${window.location.host}/ws`;
+        const socket = new WebSocket(wsUrl);
 
         socket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-    
+                console.log("WS PARSED:", data);
                 if (data.type === 'like' && data.post_id === parseInt(id)) {
                     setLikes(data.like_count);
                 }
@@ -51,6 +53,10 @@ function PostDetailContainer() {
                 console.error('Lỗi xử lý WebSocket:', error);
             }
         };
+
+	return () => {
+		socket.close();
+	}
     }, [id]);
 
     const handleLike = () => {
