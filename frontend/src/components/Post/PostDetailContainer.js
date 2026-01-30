@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api, { sendRequest } from '../../utils/axiosConfig';
 import PostDetail from './PostDetail';
-import websocketUrl from '../../utils/websocketConfig'
 
 function PostDetailContainer() {
     const { id } = useParams();
@@ -17,7 +16,6 @@ function PostDetailContainer() {
                     sendRequest(`/posts/${id}`),
                     sendRequest(`/posts/${id}/comments`)
                 ]);
-                console.log(res);
                 
                 setPost(res[0].data);
                 setLikes(res[0].data.like_count || 0);
@@ -30,13 +28,14 @@ function PostDetailContainer() {
         callApi(id)
 
         const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-        const wsUrl = `${protocol}://${window.location.host}/ws`;
+        const wsUrl = process.env.REACT_APP_WS_URL.startsWith("ws")
+        			? process.env.REACT_APP_WS_URL
+        			: `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}${process.env.REACT_APP_WS_URL}`;
         const socket = new WebSocket(wsUrl);
 
         socket.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data);
-                console.log("WS PARSED:", data);
                 if (data.type === 'like' && data.post_id === parseInt(id)) {
                     setLikes(data.like_count);
                 }

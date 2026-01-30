@@ -1,15 +1,3 @@
-// import React from 'react';
-
-// function Footer() {
-//   return (
-//     <footer>
-//       <p>&copy; {new Date().getFullYear()} Blog của tôi</p>
-//     </footer>
-//   );
-// }
-
-// export default Footer;
-
 import React from 'react';
 import styled from 'styled-components';
 

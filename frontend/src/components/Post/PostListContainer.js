@@ -4,7 +4,6 @@ import { sendRequest } from '../../utils/axiosConfig';
 import PostList from './PostList';
 import styled from 'styled-components';
 import CreatePost from './CreatePost';
-import websocketUrl from '../../utils/websocketConfig'
 
 const PostListContainerWrapper = styled.div`
     display: flex;
@@ -39,12 +38,15 @@ function PostListContainer() {
 
 		callApi()
 
-                const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-                const wsUrl = `${protocol}://${window.location.host}/ws`;
+		const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+		const wsUrl = process.env.REACT_APP_WS_URL.startsWith("ws")
+        			? process.env.REACT_APP_WS_URL
+        			: `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}${process.env.REACT_APP_WS_URL}`;
+					
 		const socket = new WebSocket(wsUrl);
 
-                socket.onmessage = (event) => {
-                         try {
+		socket.onmessage = (event) => {
+			try {
 				const data = JSON.parse(event.data);
 
 				if (data.type === 'like') {
@@ -56,14 +58,14 @@ function PostListContainer() {
 						)
 					);
 				}
-                         } catch (error) {
-                                console.error('Lỗi xử lý WebSocket:', error);
-                         }
-                  };
+			} catch (error) {
+				console.error('Lỗi xử lý WebSocket:', error);
+			}
+		};
 
-                  return () => {
-                         socket.close();
-                  }
+		return () => {
+				socket.close();
+		}
 
 	}, []);
 
