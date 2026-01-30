@@ -36,7 +36,7 @@ def create_post(
         )
     
 @router.get('', dependencies=[Depends(login_required)], response_model=Page[PostResponse])
-def get_all_post(
+def get_user_post(
     params: PaginationParams = Depends()
 ):
     try:

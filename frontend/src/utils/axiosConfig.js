@@ -1,8 +1,7 @@
 import axios from 'axios';
 
 const instance = axios.create({
-    baseURL: process.env.REACT_APP_API_URL, // Thay đổi URL API của bạn
-    // timeout: 10000, // Thời gian chờ tối đa (10 giây)
+    baseURL: '/api', 
     headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*'

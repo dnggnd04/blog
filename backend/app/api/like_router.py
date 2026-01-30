@@ -26,14 +26,16 @@ async def like(
 ):
     try:
         like_count = like_service.like(like_data, current_user)
-        await manager.broadcast({
-            "type": "like",
-            "post_id": like_data.post_id,
-            "like_count": like_count
-        })
-        return jsonable_encoder(like_count)
+        data = {
+                "type": "like",
+                "post_id": like_data.post_id,
+                "like_count": like_count
+        }
+        await manager.broadcast(data)
+        return jsonable_encoder(data)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=e.detail
         )
+

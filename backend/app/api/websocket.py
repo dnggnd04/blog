@@ -17,10 +17,6 @@ class ConnectionManager:
     def disconnect(self, websocket: WebSocket):
         self.active_connections.remove(websocket)
 
-    async def like(self):
-        self.like_count += 1
-        await self.broadcast()
-
     async def broadcast(self, message: dict):
         for connection in self.active_connections:
             await connection.send_json(message)
@@ -33,7 +29,5 @@ async def websocket_endpoint(websocket: WebSocket):
     try:
         while True:
             data = await websocket.receive_text()
-            if data == "like":
-                await manager.like()
     except WebSocketDisconnect:
         manager.disconnect(websocket)

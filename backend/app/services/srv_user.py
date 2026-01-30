@@ -5,12 +5,15 @@ from fastapi import Depends, status, UploadFile
 from pydantic import ValidationError
 from uuid import uuid4
 import jwt
+from datetime import datetime
 
 from app.schemas.sche_user import UserRegisterRequest, UserUpdateRequest, UserUpdateMeRequest, UserChangePasswordRequest
 from app.models.user_model import User
+from app.models.refresh_token_model import RefreshToken
 from app.core.security import get_password_hash, verify_password
 from app.core.config import settings, s3_avatar
 from app.schemas.sche_token import TokenPayload
+from app.core.security import create_refresh_token
 
 class UserService(object):
     _instance = None
@@ -25,9 +28,9 @@ class UserService(object):
     @staticmethod
     def register_user(data: UserRegisterRequest):
         exist_user_name = db.session.query(User).filter(User.user_name == data.user_name).first()
-        exist_email = db.session.query(User).filter(User.user_name == data.email).first()
+        exist_email = db.session.query(User).filter(User.email == data.email).first()
         if exist_user_name or exist_email:
-            raise Exception('Email or username already exists')
+            raise HTTPException(status_code=400, detail="Email or username already exists")
         register_user = User(
             user_name = data.user_name,
             email = data.email,
@@ -36,15 +39,110 @@ class UserService(object):
             hashed_password = get_password_hash(data.password),
             is_active = True
         )
+        refresh_token = create_refresh_token(data.user_name)
+        user_service = UserService()
+        user_service.save_refresh_token(register_user, refresh_token)
         db.session.add(register_user)
         db.session.commit()
         return register_user
     
     @staticmethod
+    def save_refresh_token(user: User, refresh_token: str):
+        
+        payload = jwt.decode(
+            refresh_token,
+            settings.SECRET_KEY,
+            settings.SECURITY_ALGORITHM
+        )
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        new_refresh_token = RefreshToken(
+            user_id = user.id,
+            jti = jti,
+            exprires_at = datetime.fromtimestamp(exp),
+            revoked = False
+        )
+        db.session.add(new_refresh_token)
+        db.session.commit()
+        return new_refresh_token
+    
+    @staticmethod
+    def verify_refresh_token(user_name: str, jti: str):
+        refresh_token = (
+            db.session.query(RefreshToken)
+            .join(User)
+            .filter(
+                User.user_name == user_name,
+                RefreshToken.jti == jti
+            )
+            .first()
+        )
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        if refresh_token.revoked:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Revoked refresh token"
+            )
+        if refresh_token.exprires_at < db.func.now():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Expired refresh token"
+            )
+        return True
+    
+    @staticmethod
+    def rotate_refresh_token(user_name: str, old_jti: str, new_refresh_token: str):
+        old_refresh_token = (
+            db.session.query(RefreshToken)
+            .join(User)
+            .filter(
+                User.user_name == user_name,
+                RefreshToken.jti == old_jti
+            )
+            .first()
+        )
+        if not old_refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
+        payload = jwt.decode(
+            new_refresh_token,
+            settings.SECRET_KEY,
+            settings.SECURITY_ALGORITHM
+        )
+
+        new_jti = payload.get("jti")
+        exp = payload.get("exp")
+
+        if not new_jti or not exp:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid refresh token"
+            )
+        
+        old_refresh_token.revoked = True
+        old_refresh_token.revoked_at = db.func.now()
+
+        new_refresh_token_entry = RefreshToken(
+            user_id = old_refresh_token.user_id,
+            jti = new_jti,
+            exprires_at = db.func.to_timestamp(exp),
+            revoked = False
+        )
+        db.session.add(new_refresh_token_entry)
+        db.session.commit()
+
+    @staticmethod
     def get(user_id):
         exist_user = db.session.query(User).get(user_id)
         if exist_user is None:
-            raise Exception('User not exists')
+            raise HTTPException(status_code=400, detail="User not exists")
         return exist_user
     
     @staticmethod

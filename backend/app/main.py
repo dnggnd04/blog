@@ -23,13 +23,12 @@ def get_application():
         CORSMiddleware,
         allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
         allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"]
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_headers=["Authorization", "Content-Type"]
     )
     application.add_middleware(DBSessionMiddleware, db_url=str(os.getenv('DATABASE_URL')))
     application.include_router(router, prefix=settings.API_PREFIX)
     application.include_router(websocket_router, prefix=settings.WEBSOCKET_PREFIX)
-    # application.add_exception_handler()
 
     return application
 

@@ -1,4 +1,5 @@
 import jwt
+import uuid
 
 from typing import Any, Union
 from app.core.config import settings
@@ -19,7 +20,25 @@ def create_access_token(user_name: Union[int, Any]) -> str:
     )
     to_encode = {
         "exp": expire,
-        "user_name": user_name
+        "user_name": user_name,
+        "type": "access"
+    }
+    encoded_jwt = jwt.encode(
+        to_encode,
+        settings.SECRET_KEY,
+        settings.SECURITY_ALGORITHM
+    )
+    return encoded_jwt
+
+def create_refresh_token(user_name: Union[int, Any]) -> str:
+    expire = datetime.now() + timedelta(
+        seconds=settings.REFRESH_TOKEN_EXPIRE_SECONDS
+    )
+    to_encode = {
+        "exp": expire,
+        "user_name": user_name,
+        "type": "refresh",
+        "jti": str(uuid.uuid4())
     }
     encoded_jwt = jwt.encode(
         to_encode,
