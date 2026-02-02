@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    container_name: blog_be
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: blog_fe
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always

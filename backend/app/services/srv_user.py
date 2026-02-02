@@ -87,7 +87,7 @@ class UserService(object):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Revoked refresh token"
             )
-        if refresh_token.exprires_at < db.func.now():
+        if refresh_token.expires_at < datetime.now():
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Expired refresh token"
