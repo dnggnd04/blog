@@ -59,7 +59,7 @@ class UserService(object):
         new_refresh_token = RefreshToken(
             user_id = user.id,
             jti = jti,
-            exprires_at = datetime.fromtimestamp(exp),
+            expires_at = datetime.fromtimestamp(exp),
             revoked = False
         )
         db.session.add(new_refresh_token)
@@ -132,7 +132,7 @@ class UserService(object):
         new_refresh_token_entry = RefreshToken(
             user_id = old_refresh_token.user_id,
             jti = new_jti,
-            exprires_at = db.func.to_timestamp(exp),
+            expires_at = db.func.to_timestamp(exp),
             revoked = False
         )
         db.session.add(new_refresh_token_entry)
