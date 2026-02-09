@@ -5,7 +5,7 @@ from fastapi import Depends, status, UploadFile
 from pydantic import ValidationError
 from uuid import uuid4
 import jwt
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.schemas.sche_user import UserRegisterRequest, UserUpdateRequest, UserUpdateMeRequest, UserChangePasswordRequest
 from app.models.user_model import User
@@ -39,9 +39,6 @@ class UserService(object):
             hashed_password = get_password_hash(data.password),
             is_active = True
         )
-        refresh_token = create_refresh_token(data.user_name)
-        user_service = UserService()
-        user_service.save_refresh_token(register_user, refresh_token)
         db.session.add(register_user)
         db.session.commit()
         return register_user
@@ -59,7 +56,7 @@ class UserService(object):
         new_refresh_token = RefreshToken(
             user_id = user.id,
             jti = jti,
-            expires_at = datetime.fromtimestamp(exp),
+            expires_at = datetime.fromtimestamp(exp, tz=timezone.utc),
             revoked = False
         )
         db.session.add(new_refresh_token)
@@ -87,12 +84,18 @@ class UserService(object):
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Revoked refresh token"
             )
-        if refresh_token.expires_at < datetime.now():
+        expires_at = refresh_token.expires_at
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+
+        if expires_at < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Expired refresh token"
             )
-        return True
+
+        return refresh_token
+
     
     @staticmethod
     def rotate_refresh_token(user_name: str, old_jti: str, new_refresh_token: str):
@@ -127,15 +130,30 @@ class UserService(object):
             )
         
         old_refresh_token.revoked = True
-        old_refresh_token.revoked_at = db.func.now()
+        old_refresh_token.revoked_at = datetime.now(timezone.utc)
 
         new_refresh_token_entry = RefreshToken(
             user_id = old_refresh_token.user_id,
             jti = new_jti,
-            expires_at = db.func.to_timestamp(exp),
+            expires_at = datetime.fromtimestamp(exp, tz=timezone.utc),
             revoked = False
         )
         db.session.add(new_refresh_token_entry)
+        db.session.commit()
+
+    @staticmethod
+    def revoke_all_refresh_tokens(user_id: int):
+        refresh_tokens = (
+            db.session.query(RefreshToken)
+            .filter(
+                RefreshToken.user_id == user_id,
+                RefreshToken.revoked == False
+            )
+            .all()
+        )
+        for token in refresh_tokens:
+            token.revoked = True
+            token.revoked_at = datetime.now(timezone.utc)
         db.session.commit()
 
     @staticmethod
@@ -170,15 +188,21 @@ class UserService(object):
                 algorithms=[settings.SECURITY_ALGORITHM]
             )
             token_data = TokenPayload(**payload)
-        except (jwt.PyJWKError, ValidationError):
+        except jwt.ExpiredSignatureError:
             raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Could not validate credentials"
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Access token expired"
             )
+        except (jwt.InvalidTokenError, jwt.PyJWKError, ValidationError):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials"
+            )
+
         user = db.session.query(User).filter(User.user_name == token_data.user_name).first()
         if not user:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found"
             )
         return user

@@ -3,7 +3,7 @@ import uuid
 
 from typing import Any, Union
 from app.core.config import settings
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -15,7 +15,7 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return pwd_context.verify(password, hashed_password)
 
 def create_access_token(user_name: Union[int, Any]) -> str:
-    expire = datetime.now() + timedelta(
+    expire = datetime.now(timezone.utc) + timedelta(
         seconds=settings.ACCESS_TOKEN_EXPIRE_SECONDS
     )
     to_encode = {
@@ -31,7 +31,7 @@ def create_access_token(user_name: Union[int, Any]) -> str:
     return encoded_jwt
 
 def create_refresh_token(user_name: Union[int, Any]) -> str:
-    expire = datetime.now() + timedelta(
+    expire = datetime.now(timezone.utc) + timedelta(
         seconds=settings.REFRESH_TOKEN_EXPIRE_SECONDS
     )
     to_encode = {

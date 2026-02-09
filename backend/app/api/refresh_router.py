@@ -1,3 +1,4 @@
+from exceptiongroup import catch
 from fastapi import APIRouter, Depends, status, Response, Request
 from fastapi.exceptions import HTTPException
 from app.schemas.sche_base import DataResponse
@@ -23,11 +24,23 @@ async def refresh_token(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Refresh token missing"
         )
-    payload = jwt.decode(
-        refresh_token,
-        settings.SECRET_KEY,
-        algorithms=[settings.SECURITY_ALGORITHM]
-    )
+    try:
+        payload = jwt.decode(
+            refresh_token,
+            settings.SECRET_KEY,
+            algorithms=[settings.SECURITY_ALGORITHM]
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Expired refresh token"
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
+
     if payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -50,6 +63,7 @@ async def refresh_token(
         httponly=True,
         secure=True,
         samesite="strict",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_SECONDS
     )
 
     return DataResponse().success_response(

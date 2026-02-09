@@ -21,6 +21,8 @@ async def login(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Inactive user"
         )
+    
+    user_service.revoke_all_refresh_tokens(user.id)
 
     access_token = create_access_token(user.user_name)
     refresh_token = create_refresh_token(user.user_name)
