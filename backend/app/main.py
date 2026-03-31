@@ -19,9 +19,12 @@ def get_application():
         redoc_url='/re-docs',
         description=''
     )
+    # Handle CORS Origins parsing safely
+    cors_origins = [origin.strip() for origin in settings.BACKEND_CORS_ORIGINS.split(',')] if settings.BACKEND_CORS_ORIGINS else []
+    
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS],
+        allow_origins=cors_origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"]

@@ -1,5 +1,6 @@
 from pydantic import BaseSettings
 import os
+import boto3
 from dotenv import load_dotenv
 
 # ── Ưu tiên đọc từ OS environment (Docker Compose inject) ──────
@@ -21,7 +22,7 @@ class Settings(BaseSettings):
     SECRET_KEY = os.getenv("SECRET_KEY", 'secret')
     API_PREFIX = os.getenv("API_PREFIX", '')
     WEBSOCKET_PREFIX = os.getenv("WEBSOCKET_PREFIX", '')
-    BACKEND_CORS_ORIGINS = os.getenv("BACKEND_CORS_ORIGINS", '').split(',')
+    BACKEND_CORS_ORIGINS: str = os.getenv("BACKEND_CORS_ORIGINS", '')
     DATABASE_URL = os.getenv("DATABASE_URL", '')
     ACCESS_TOKEN_EXPIRE_SECONDS : int = 60 * 3
     REFRESH_TOKEN_EXPIRE_SECONDS : int = 60 * 60 * 24 * 7
