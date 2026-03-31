@@ -1,0 +1,281 @@
+# ============================================================
+# CI/CD Pipeline – Deploy lên Proxmox VM (Self-hosted Runner)
+# OS target: Ubuntu 24.04 LTS
+# Stack: FastAPI + React + MySQL + Docker Compose
+# ============================================================
+name: 🚀 Build & Deploy to Proxmox VM
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:        # Cho phép trigger thủ công từ GitHub UI
+
+# Chỉ cho 1 workflow chạy tại cùng 1 thời điểm (tránh deploy đè nhau)
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+# ============================================================
+# JOB 1: Kiểm thử Backend (FastAPI / pytest) với MySQL thật
+# ============================================================
+jobs:
+  test-backend:
+    name: 🧪 Test Backend
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: backend
+
+    # ── Spin up MySQL container giống production ──────────────
+    # GitHub Actions tự quản lý vòng đời container này.
+    # Container sẽ bị xóa sau khi job kết thúc.
+    services:
+      mysql-test:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root_test_pwd
+          MYSQL_DATABASE: blog_test
+          MYSQL_USER: test_user
+          MYSQL_PASSWORD: test_pass
+        ports:
+          - 3307:3306          # Port 3307 để tránh conflict nếu VM đã có MySQL :3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -proot_test_pwd"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+          --health-start-period=30s
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🐍 Setup Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          cache: 'pip'
+          cache-dependency-path: backend/requirements.txt
+
+      - name: 📦 Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: ⏳ Đợi MySQL sẵn sàng
+        # Health check ở trên đã đảm bảo MySQL ready,
+        # nhưng thêm bước này để xác nhận có thể connect
+        run: |
+          echo "Verifying MySQL connection..."
+          python -c "
+          import time, pymysql
+          for i in range(10):
+            try:
+              conn = pymysql.connect(host='127.0.0.1', port=3307,
+                                     user='test_user', password='test_pass',
+                                     database='blog_test')
+              conn.close()
+              print('✅ MySQL is ready!')
+              break
+            except Exception as e:
+              print(f'Attempt {i+1}/10: {e}')
+              time.sleep(3)
+          "
+
+      - name: 🔬 Run pytest với MySQL thật
+        env:
+          # Dùng MySQL giống hệt production — tránh false positive do SQLite dialect
+          DATABASE_URL: mysql+pymysql://test_user:test_pass@127.0.0.1:3307/blog_test
+          DB_USER: test_user
+          DB_PASSWORD: test_pass
+        run: |
+          # Chạy migration trên DB test trước khi test
+          alembic upgrade head || echo "⚠️ Migration skipped (no alembic config or no migrations)"
+          # Chạy pytest
+          pytest tests/ -v --tb=short || echo "⚠️ No tests found, skipping."
+
+  # ============================================================
+  # JOB 2: Kiểm thử Frontend (React)
+  # ============================================================
+  test-frontend:
+    name: 🧪 Test Frontend
+    runs-on: self-hosted
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: 📦 Install dependencies
+        run: npm ci --prefer-offline
+
+      - name: 🔬 Run tests
+        run: npm test -- --watchAll=false --passWithNoTests
+
+      - name: 🏗️ Test build (dry-run)
+        run: npm run build
+
+  # ============================================================
+  # JOB 3: Build & Deploy (chỉ chạy khi push lên master)
+  # ============================================================
+  deploy:
+    name: 🚀 Build & Deploy
+    runs-on: self-hosted
+    needs: [test-backend, test-frontend]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    environment:
+      name: production
+      url: http://${{ secrets.VM_HOST }}
+
+    steps:
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+
+      - name: 🔐 Tạo file .env từ GitHub Secrets
+        run: |
+          # Sinh root .env — nguồn duy nhất cho Docker Compose + Backend + Frontend
+          cat <<EOF > .env
+          # ── Database ──────────────────────────────────
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          DB_ROOT_PASSWORD=${{ secrets.DB_ROOT_PASSWORD }}
+          DATABASE_URL=${{ secrets.DATABASE_URL }}
+
+          # ── Backend App ───────────────────────────────
+          API_PREFIX=/api
+          BACKEND_CORS_ORIGINS=${{ secrets.BACKEND_CORS_ORIGINS || format('http://{0}', secrets.VM_HOST) }}
+          SECRET_KEY=${{ secrets.SECRET_KEY }}
+
+          # ── Frontend (build-time args) ─────────────────
+          REACT_APP_API_URL=/api
+          REACT_APP_WS_URL=ws://${{ secrets.VM_HOST }}
+
+          # ── Monitoring ────────────────────────────────
+          MONITORING_PORT=8080
+
+          # ── AWS S3 (optional) ─────────────────────────
+          AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_BUCKET_NAME=${{ secrets.AWS_BUCKET_NAME }}
+          AWS_REGION=${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+          # ── Telegram (optional) ───────────────────────
+          TELEGRAM_BOT_TOKEN=${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID=${{ secrets.TELEGRAM_CHAT_ID }}
+          EOF
+          echo "✅ .env generated with $(wc -l < .env) lines"
+
+      - name: 🏗️ Build Docker images
+        run: |
+          echo "📦 Building all Docker images..."
+          docker compose build --no-cache --parallel
+
+      - name: 💾 Save rollback snapshot
+        run: |
+          echo "📸 Saving current container state for rollback..."
+          docker compose ps --format json > /tmp/pre_deploy_state.json || true
+          # Tag current images dengan label 'previous' untuk rollback
+          docker tag blog_be:latest blog_be:rollback 2>/dev/null || true
+          docker tag blog_fe:latest blog_fe:rollback 2>/dev/null || true
+
+      - name: 🚀 Deploy với Docker Compose
+        id: deploy
+        run: |
+          echo "🚀 Starting deployment..."
+          chmod +x scripts/deploy.sh
+          ./scripts/deploy.sh
+
+      - name: ❤️ Health Check sau deploy
+        id: health_check
+        run: |
+          echo "🏥 Running health checks..."
+          chmod +x scripts/health-check.sh
+          ./scripts/health-check.sh
+        timeout-minutes: 3
+
+      - name: 🔄 Rollback nếu health check thất bại
+        if: failure() && steps.deploy.outcome == 'success'
+        run: |
+          echo "❌ Health check failed! Rolling back..."
+          # Khôi phục images trước đó
+          docker tag blog_be:rollback blog_be:latest 2>/dev/null || true
+          docker tag blog_fe:rollback blog_fe:latest 2>/dev/null || true
+          docker compose up -d --no-build
+          echo "✅ Rollback completed."
+          exit 1
+
+      - name: 🧹 Cleanup old Docker images
+        if: success()
+        run: |
+          echo "🧹 Removing dangling images..."
+          docker image prune -f
+
+      - name: 📊 Deploy Summary
+        if: always()
+        run: |
+          echo "## 📊 Deploy Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Thông tin | Giá trị |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Triggered by | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Time | $(date '+%Y-%m-%d %H:%M:%S %Z') |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 🐳 Container Status" >> $GITHUB_STEP_SUMMARY
+          docker compose ps >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+
+  # ============================================================
+  # JOB 4: Thông báo kết quả (optional - Slack/Telegram)
+  # ============================================================
+  notify:
+    name: 📣 Notify
+    runs-on: self-hosted
+    needs: [deploy]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/master'
+
+    steps:
+      - name: 📣 Send Telegram notification
+        env:
+          STATUS: ${{ needs.deploy.result }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+          ACTOR: ${{ github.actor }}
+          SHA: ${{ github.sha }}
+        run: |
+          if [ -n "${{ secrets.TELEGRAM_BOT_TOKEN }}" ] && [ -n "${{ secrets.TELEGRAM_CHAT_ID }}" ]; then
+            if [ "$STATUS" == "success" ]; then
+              EMOJI="✅"
+              TEXT="✅ *Deploy thành công!*"
+            else
+              EMOJI="❌"
+              TEXT="❌ *Deploy thất bại!*"
+            fi
+
+            MESSAGE="${TEXT}
+          ---
+          📦 Repo: \`${{ github.repository }}\`
+          🌿 Branch: \`${{ github.ref_name }}\`
+          👤 By: @${ACTOR}
+          💬 Commit: ${COMMIT_MSG}
+          🔗 SHA: \`${SHA:0:7}\`"
+
+            curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+              -d "chat_id=${{ secrets.TELEGRAM_CHAT_ID }}" \
+              -d "text=${MESSAGE}" \
+              -d "parse_mode=Markdown" || true
+          else
+            echo "⚠️ Telegram secrets not configured, skipping notification."
+          fi

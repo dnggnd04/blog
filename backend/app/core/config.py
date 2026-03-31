@@ -1,10 +1,19 @@
-from dotenv import load_dotenv
 from pydantic import BaseSettings
 import os
-import boto3
+from dotenv import load_dotenv
 
+# ── Ưu tiên đọc từ OS environment (Docker Compose inject) ──────
+# Nếu chạy local dev (không qua Docker), fallback đọc file .env
+# Thứ tự tìm file .env: backend/app/.env → root .env
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-load_dotenv(os.path.join(os.path.join(BASE_DIR, 'app'), '.env'))
+_env_paths = [
+    os.path.join(BASE_DIR, 'app', '.env'),   # backend/app/.env (local dev)
+    os.path.join(BASE_DIR, '..', '.env'),     # root .env (fallback)
+]
+for _env_path in _env_paths:
+    if os.path.exists(_env_path):
+        load_dotenv(_env_path, override=False)  # override=False: OS env thắng .env file
+        break
 
 
 class Settings(BaseSettings):

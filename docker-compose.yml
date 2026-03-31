@@ -1,8 +1,30 @@
 version: '3.8'
 
+# ──────────────────────────────────────────────────────────────
+#  Blog App — Docker Compose
+#  Stack: FastAPI + React + MySQL + Monitoring Dashboard
+#  Target: Ubuntu 24.04 / Proxmox VM
+# ──────────────────────────────────────────────────────────────
+
+networks:
+  blog-net:
+    driver: bridge
+
+volumes:
+  db_data:
+  logs_data:
+
 services:
+
+  # ──────────────────────────────────────────────
+  #  DATABASE — MySQL 8.0
+  # ──────────────────────────────────────────────
   db:
     image: mysql:8.0
+    container_name: blog-db
+    restart: unless-stopped
+    networks:
+      - blog-net
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
       MYSQL_DATABASE: blog
@@ -12,31 +34,106 @@ services:
       - "3306:3306"
     volumes:
       - db_data:/var/lib/mysql
-    restart: always
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ──────────────────────────────────────────────
+  #  BACKEND — FastAPI + Gunicorn
+  # ──────────────────────────────────────────────
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      dockerfile: dockerfile
     container_name: blog_be
+    restart: unless-stopped
+    networks:
+      - blog-net
     ports:
       - "8000:8000"
     command: >
-      sh -c "alembic upgrade head && 
+      sh -c "alembic upgrade head &&
              gunicorn -w 4 -k uvicorn.workers.UvicornWorker app.main:app --bind 0.0.0.0:8000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     environment:
+      # DB
       - DATABASE_URL=${DATABASE_URL}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
-    restart: always
+      # App
+      - API_PREFIX=${API_PREFIX:-/api}
+      - SECRET_KEY=${SECRET_KEY}
+      - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS}
+      # AWS S3 (optional)
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
+      - AWS_REGION=${AWS_REGION:-ap-southeast-1}
+    volumes:
+      - logs_data:/app/logs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
 
+  # ──────────────────────────────────────────────
+  #  FRONTEND — React + Nginx
+  # ──────────────────────────────────────────────
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      dockerfile: dockerfile
+      args:
+        # REACT_APP_* được bake vào bundle lúc npm run build
+        # Đọc trực tiếp từ root .env — không cần file .env riêng cho frontend
+        REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
+        REACT_APP_WS_URL: ${REACT_APP_WS_URL:-ws://localhost:8000/ws}
     container_name: blog_fe
+    restart: unless-stopped
+    networks:
+      - blog-net
     ports:
       - "80:80"
     depends_on:
-      - backend
-    restart: always
-  
-volumes:
-  db_data:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # ──────────────────────────────────────────────
+  #  MONITORING — FastAPI Dashboard (port 8080)
+  # ──────────────────────────────────────────────
+  monitoring:
+    build:
+      context: ./monitoring
+      dockerfile: Dockerfile
+    container_name: blog-monitoring
+    restart: unless-stopped
+    networks:
+      - blog-net
+    ports:
+      - "${MONITORING_PORT:-8080}:8080"
+    volumes:
+      # Đọc Docker socket để lấy container info
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Đọc /proc để lấy CPU/RAM metrics
+      - /proc:/host/proc:ro
+      - logs_data:/app/logs:ro
+    environment:
+      - MONITORING_PORT=8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Blog Server Health Dashboard - Giám sát sức khỏe server realtime" />
+  <title>⚡ Server Monitor — Blog App</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── Reset & Variables ─────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:          #0a0e1a;
+      --bg-card:     #111827;
+      --bg-card2:    #1a2235;
+      --border:      rgba(99,137,210,0.15);
+      --border-glow: rgba(99,137,210,0.4);
+
+      --text:        #e2e8f0;
+      --text-dim:    #64748b;
+      --text-muted:  #94a3b8;
+
+      --accent:      #6366f1;
+      --accent2:     #06b6d4;
+      --green:       #10b981;
+      --yellow:      #f59e0b;
+      --red:         #ef4444;
+      --purple:      #8b5cf6;
+      --orange:      #f97316;
+
+      --radius:      12px;
+      --radius-lg:   20px;
+      --shadow:      0 4px 24px rgba(0,0,0,0.4);
+      --transition:  all 0.25s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── Animated background ───────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 0;
+      background:
+        radial-gradient(ellipse 60% 40% at 20% 10%, rgba(99,102,241,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 50% 50% at 80% 80%, rgba(6,182,212,0.06) 0%, transparent 60%);
+      pointer-events: none;
+    }
+
+    /* ── Layout ────────────────────────────────────────────── */
+    .wrapper { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px 40px; }
+
+    /* ── Header ────────────────────────────────────────────── */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 24px 0 32px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-left { display: flex; align-items: center; gap: 14px; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; box-shadow: 0 0 20px rgba(99,102,241,0.3);
+    }
+    .header-title h1 { font-size: 1.25rem; font-weight: 700; }
+    .header-title p  { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    #status-badge {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px; border-radius: 999px;
+      font-size: 0.8rem; font-weight: 500;
+      background: rgba(16,185,129,0.12); border: 1px solid rgba(16,185,129,0.3);
+      color: var(--green);
+    }
+    .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50%       { opacity: 0.5; transform: scale(0.85); }
+    }
+    #last-update { font-size: 0.76rem; color: var(--text-dim); }
+
+    /* ── Section titles ────────────────────────────────────── */
+    .section-title {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 0.82rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.08em; color: var(--text-dim);
+      margin: 32px 0 16px;
+    }
+    .section-title::after {
+      content: ''; flex: 1; height: 1px; background: var(--border);
+    }
+
+    /* ── Cards ─────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      transition: var(--transition);
+    }
+    .card:hover {
+      border-color: var(--border-glow);
+      box-shadow: 0 0 30px rgba(99,102,241,0.07);
+      transform: translateY(-1px);
+    }
+
+    /* ── Stats Grid ─────────────────────────────────────────── */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+      display: flex; align-items: flex-start; gap: 16px;
+      transition: var(--transition);
+      cursor: default;
+    }
+    .stat-card:hover { border-color: var(--border-glow); transform: translateY(-2px); box-shadow: var(--shadow); }
+
+    .stat-icon {
+      width: 44px; height: 44px; min-width: 44px;
+      border-radius: 12px; display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .stat-info { flex: 1; min-width: 0; }
+    .stat-label { font-size: 0.74rem; font-weight: 500; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.06em; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; margin: 4px 0; line-height: 1; }
+    .stat-sub   { font-size: 0.76rem; color: var(--text-muted); }
+
+    /* ── Ring chart ─────────────────────────────────────────── */
+    .ring-container { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+    .ring-text { position: absolute; font-size: 0.75rem; font-weight: 700; }
+    svg circle { transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1); }
+
+    /* ── Progress bar ───────────────────────────────────────── */
+    .progress-wrap { margin-top: 10px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 0.76rem; margin-bottom: 6px; color: var(--text-muted); }
+    .progress-bar { height: 6px; border-radius: 999px; background: rgba(255,255,255,0.06); overflow: hidden; }
+    .progress-fill {
+      height: 100%; border-radius: 999px;
+      transition: width 0.8s cubic-bezier(0.4,0,0.2,1);
+      background: linear-gradient(90deg, var(--accent), var(--accent2));
+    }
+    .progress-fill.warn  { background: linear-gradient(90deg, var(--yellow), var(--orange)); }
+    .progress-fill.crit  { background: linear-gradient(90deg, var(--red), #dc2626); }
+
+    /* ── Container Grid ─────────────────────────────────────── */
+    .containers-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+
+    .container-card {
+      background: var(--bg-card2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+      display: flex; align-items: center; gap: 14px;
+      transition: var(--transition);
+    }
+    .container-card:hover { border-color: var(--border-glow); }
+    .container-card.running { border-left: 3px solid var(--green); }
+    .container-card.stopped { border-left: 3px solid var(--red); }
+    .container-card.restarting { border-left: 3px solid var(--yellow); }
+
+    .container-icon { font-size: 26px; }
+    .container-info { flex: 1; min-width: 0; }
+    .container-name { font-size: 0.88rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .container-status { font-size: 0.73rem; color: var(--text-dim); margin-top: 3px; }
+    .container-cpu-mem { font-size: 0.72rem; color: var(--text-muted); margin-top: 5px; font-family: 'JetBrains Mono', monospace; }
+
+    .badge {
+      padding: 3px 10px; border-radius: 999px; font-size: 0.7rem; font-weight: 600;
+      white-space: nowrap;
+    }
+    .badge-green  { background: rgba(16,185,129,0.15); color: var(--green); }
+    .badge-red    { background: rgba(239,68,68,0.15);  color: var(--red); }
+    .badge-yellow { background: rgba(245,158,11,0.15); color: var(--yellow); }
+    .badge-dim    { background: rgba(100,116,139,0.15); color: var(--text-dim); }
+
+    /* ── Deploy History ─────────────────────────────────────── */
+    .deploy-list { display: flex; flex-direction: column; gap: 10px; }
+    .deploy-item {
+      display: grid; grid-template-columns: auto 1fr auto auto;
+      align-items: center; gap: 14px;
+      background: var(--bg-card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 16px;
+      font-size: 0.82rem;
+      transition: var(--transition);
+    }
+    .deploy-item:hover { border-color: var(--border-glow); }
+    .deploy-commit { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--accent2); }
+    .deploy-time   { color: var(--text-dim); font-size: 0.76rem; }
+    .deploy-dur    { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--text-muted); }
+
+    /* ── Log Viewer ─────────────────────────────────────────── */
+    .log-toolbar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .log-filter-btn {
+      padding: 6px 14px; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--text-muted); font-size: 0.78rem;
+      cursor: pointer; transition: var(--transition); font-family: 'Inter', sans-serif;
+    }
+    .log-filter-btn:hover, .log-filter-btn.active {
+      background: rgba(99,102,241,0.15); border-color: var(--accent); color: var(--accent);
+    }
+    #log-search {
+      flex: 1; min-width: 160px; padding: 7px 14px;
+      background: var(--bg-card2); border: 1px solid var(--border);
+      border-radius: 8px; color: var(--text); font-size: 0.82rem;
+      font-family: 'Inter', sans-serif; outline: none; transition: var(--transition);
+    }
+    #log-search:focus { border-color: var(--accent); }
+
+    #log-output {
+      background: #060c18; border: 1px solid var(--border);
+      border-radius: 12px; padding: 16px;
+      height: 320px; overflow-y: auto;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.76rem;
+      line-height: 1.7;
+    }
+    #log-output::-webkit-scrollbar { width: 6px; }
+    #log-output::-webkit-scrollbar-track { background: transparent; }
+    #log-output::-webkit-scrollbar-thumb { background: rgba(99,137,210,0.3); border-radius: 3px; }
+
+    .log-line { display: block; padding: 1px 0; }
+    .log-line.error   { color: #f87171; }
+    .log-line.warning { color: #fbbf24; }
+    .log-line.success { color: #34d399; }
+    .log-line.info    { color: #93c5fd; }
+    .log-line.default { color: #6b7280; }
+
+    /* ── Uptime / Quick Stats ───────────────────────────────── */
+    .info-row { display: flex; flex-wrap: wrap; gap: 16px; }
+    .info-item { display: flex; flex-direction: column; gap: 4px; }
+    .info-key  { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim); }
+    .info-val  { font-size: 0.88rem; font-weight: 500; font-family: 'JetBrains Mono', monospace; }
+
+    /* ── Refresh indicator ──────────────────────────────────── */
+    .refresh-spin {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid rgba(99,102,241,0.3); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Responsive ─────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+      .deploy-item { grid-template-columns: auto 1fr; }
+      .deploy-dur { display: none; }
+    }
+    @media (max-width: 480px) {
+      .stats-grid { grid-template-columns: 1fr; }
+      .wrapper { padding: 0 14px 40px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- ── Header ───────────────────────────────────────────────── -->
+  <header>
+    <div class="header-left">
+      <div class="logo">⚡</div>
+      <div class="header-title">
+        <h1>Server Monitor</h1>
+        <p id="hostname-display">Blog App · Proxmox VM</p>
+      </div>
+    </div>
+    <div class="header-right">
+      <span id="status-badge">
+        <span class="dot" id="status-dot"></span>
+        <span id="status-text">Đang kết nối...</span>
+      </span>
+      <span id="last-update">Chưa cập nhật</span>
+    </div>
+  </header>
+
+  <!-- ── System Resources ─────────────────────────────────────── -->
+  <div class="section-title">💻 Tài nguyên hệ thống</div>
+  <div class="stats-grid">
+
+    <!-- CPU -->
+    <div class="stat-card" id="card-cpu">
+      <div class="stat-icon" style="background:rgba(99,102,241,0.12); color:#818cf8">🖥️</div>
+      <div class="stat-info">
+        <div class="stat-label">CPU Usage</div>
+        <div class="stat-value" id="cpu-val">—</div>
+        <div class="stat-sub" id="cpu-sub">Load avg: —</div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="cpu-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RAM -->
+    <div class="stat-card" id="card-ram">
+      <div class="stat-icon" style="background:rgba(6,182,212,0.12); color:#22d3ee">🧠</div>
+      <div class="stat-info">
+        <div class="stat-label">Memory</div>
+        <div class="stat-value" id="ram-val">—</div>
+        <div class="stat-sub" id="ram-sub">— / — MB</div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="ram-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Disk -->
+    <div class="stat-card" id="card-disk">
+      <div class="stat-icon" style="background:rgba(139,92,246,0.12); color:#a78bfa">💾</div>
+      <div class="stat-info">
+        <div class="stat-label">Disk</div>
+        <div class="stat-value" id="disk-val">—</div>
+        <div class="stat-sub" id="disk-sub">— / — GB</div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" id="disk-bar" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Uptime -->
+    <div class="stat-card">
+      <div class="stat-icon" style="background:rgba(16,185,129,0.12); color:#34d399">⏱️</div>
+      <div class="stat-info">
+        <div class="stat-label">Thông tin server</div>
+        <div class="info-row" style="margin-top:8px">
+          <div class="info-item">
+            <span class="info-key">Uptime</span>
+            <span class="info-val" id="sys-uptime">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-key">Hostname</span>
+            <span class="info-val" id="sys-hostname">—</span>
+          </div>
+          <div class="info-item">
+            <span class="info-key">Containers</span>
+            <span class="info-val" id="sys-containers">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /stats-grid -->
+
+  <!-- ── Containers ───────────────────────────────────────────── -->
+  <div class="section-title">🐳 Docker Containers</div>
+  <div class="containers-grid" id="containers-grid">
+    <div style="color:var(--text-dim); font-size:0.85rem; padding:12px;">Đang tải...</div>
+  </div>
+
+  <!-- ── Deploy History + Logs (2 cột) ──────────────────────── -->
+  <div style="display:grid; grid-template-columns: 1fr 1.4fr; gap:20px; align-items:start; margin-top:8px">
+
+    <!-- Deploy History -->
+    <div>
+      <div class="section-title">🚀 Lịch sử Deploy</div>
+      <div class="card">
+        <div class="deploy-list" id="deploy-list">
+          <div style="color:var(--text-dim); font-size:0.85rem;">Chưa có lịch sử deploy.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Log Viewer -->
+    <div>
+      <div class="section-title">📋 Log Realtime</div>
+      <div class="card">
+        <div class="log-toolbar">
+          <button class="log-filter-btn active" data-svc="all">All</button>
+          <button class="log-filter-btn" data-svc="backend">Backend</button>
+          <button class="log-filter-btn" data-svc="frontend">Frontend</button>
+          <button class="log-filter-btn" data-svc="db">Database</button>
+          <input type="text" id="log-search" placeholder="🔍 Tìm trong log..." />
+          <button class="log-filter-btn" id="log-errors-only">⚠️ Errors Only</button>
+        </div>
+        <div id="log-output"><span class="log-line default">Đang tải log...</span></div>
+      </div>
+    </div>
+
+  </div>
+
+</div><!-- /wrapper -->
+
+<script>
+// =======================================================================
+//  CONFIGURATION
+// =======================================================================
+const API_BASE      = '';   // Cùng origin với dashboard
+const REFRESH_MS    = 5000; // Tự refresh mỗi 5 giây
+const LOG_REFRESH   = 8000; // Log refresh mỗi 8 giây
+let   currentSvc    = 'all';
+let   errorsOnly    = false;
+let   searchQuery   = '';
+
+// =======================================================================
+//  HELPERS
+// =======================================================================
+const $ = id => document.getElementById(id);
+
+function fmtPct(v) { return isFinite(v) ? `${v}%` : '—'; }
+
+function getBarClass(pct) {
+  if (pct >= 90) return 'crit';
+  if (pct >= 70) return 'warn';
+  return '';
+}
+
+function setBar(barId, pct) {
+  const bar = $(barId);
+  bar.style.width = `${Math.min(pct, 100)}%`;
+  bar.className = 'progress-fill ' + getBarClass(pct);
+}
+
+function setStatus(ok) {
+  const dot  = $('status-dot');
+  const text = $('status-text');
+  const badge = $('status-badge');
+  if (ok) {
+    dot.style.background = 'var(--green)';
+    dot.style.boxShadow  = '0 0 6px var(--green)';
+    text.textContent = 'Online';
+    badge.style.background = 'rgba(16,185,129,0.12)';
+    badge.style.borderColor = 'rgba(16,185,129,0.3)';
+    badge.style.color = 'var(--green)';
+  } else {
+    dot.style.background = 'var(--red)';
+    dot.style.boxShadow  = '0 0 6px var(--red)';
+    text.textContent = 'Mất kết nối!';
+    badge.style.background = 'rgba(239,68,68,0.12)';
+    badge.style.borderColor = 'rgba(239,68,68,0.3)';
+    badge.style.color = 'var(--red)';
+  }
+}
+
+function timeAgo(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts.replace('_', 'T').replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
+  if (isNaN(d)) return ts;
+  return d.toLocaleString('vi-VN');
+}
+
+// =======================================================================
+//  FETCH OVERVIEW (CPU/RAM/Disk/Containers/Deploys)
+// =======================================================================
+async function fetchOverview() {
+  try {
+    const res  = await fetch(`${API_BASE}/api/overview`, { signal: AbortSignal.timeout(4000) });
+    const data = await res.json();
+
+    setStatus(true);
+    $('last-update').textContent = 'Cập nhật: ' + new Date().toLocaleTimeString('vi-VN');
+
+    // System info
+    $('sys-hostname').textContent  = data.hostname || '—';
+    $('hostname-display').textContent = `${data.hostname || 'VM'} · Proxmox`;
+    $('sys-uptime').textContent    = data.uptime || '—';
+
+    // CPU
+    const cpu = data.cpu || {};
+    const cpuPct = cpu.usage_pct ?? 0;
+    $('cpu-val').textContent = fmtPct(cpuPct);
+    $('cpu-sub').textContent = `Load: ${cpu.load_1m ?? '—'} · ${cpu.cores ?? '?'} cores`;
+    setBar('cpu-bar', cpuPct);
+
+    // RAM
+    const mem = data.memory || {};
+    const ramPct = mem.usage_pct ?? 0;
+    $('ram-val').textContent  = fmtPct(ramPct);
+    $('ram-sub').textContent  = `${mem.used_mb ?? '—'} / ${mem.total_mb ?? '—'} MB`;
+    setBar('ram-bar', ramPct);
+
+    // Disk
+    const disk = data.disk || {};
+    const diskPct = disk.usage_pct ?? 0;
+    $('disk-val').textContent  = fmtPct(diskPct);
+    $('disk-sub').textContent  = `${disk.used_gb ?? '—'} / ${disk.total_gb ?? '—'} GB`;
+    setBar('disk-bar', diskPct);
+
+    // Containers
+    renderContainers(data.containers || [], data.stats || []);
+    $('sys-containers').textContent =
+      (data.containers || []).filter(c => c.state === 'running').length + ' running';
+
+    // Deploys
+    renderDeploys(data.recent_deploys || []);
+
+  } catch (err) {
+    setStatus(false);
+    console.warn('Fetch overview failed:', err.message);
+  }
+}
+
+// =======================================================================
+//  CONTAINER CARDS
+// =======================================================================
+const CONTAINER_ICONS = {
+  backend:    '🔌',
+  frontend:   '🌐',
+  db:         '🗄️',
+  monitoring: '📊',
+  default:    '🐳',
+};
+
+function iconFor(name) {
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(CONTAINER_ICONS)) {
+    if (lower.includes(k)) return v;
+  }
+  return CONTAINER_ICONS.default;
+}
+
+function renderContainers(containers, stats) {
+  const grid = $('containers-grid');
+  if (!containers.length) {
+    grid.innerHTML = '<div style="color:var(--text-dim);font-size:0.85rem;padding:12px">Không tìm thấy container nào.</div>';
+    return;
+  }
+
+  // Map stats by name
+  const statsMap = {};
+  (stats || []).forEach(s => { statsMap[s.name] = s; });
+
+  grid.innerHTML = containers.map(c => {
+    const s    = statsMap[c.name] || {};
+    const icon = iconFor(c.name);
+    let badgeClass = 'badge-dim', badgeText = c.state;
+    if (c.state === 'running')    { badgeClass = 'badge-green';  badgeText = '● Running'; }
+    if (c.state === 'stopped')    { badgeClass = 'badge-red';    badgeText = '● Stopped'; }
+    if (c.state === 'restarting') { badgeClass = 'badge-yellow'; badgeText = '↻ Restarting'; }
+
+    const cpuMem = s.cpu_pct
+      ? `CPU: ${s.cpu_pct}  MEM: ${s.mem_pct}`
+      : '';
+
+    return `
+    <div class="container-card ${c.state}">
+      <div class="container-icon">${icon}</div>
+      <div class="container-info">
+        <div class="container-name">${c.name}</div>
+        <div class="container-status">${c.image}</div>
+        ${cpuMem ? `<div class="container-cpu-mem">${cpuMem}</div>` : ''}
+      </div>
+      <span class="badge ${badgeClass}">${badgeText}</span>
+    </div>`;
+  }).join('');
+}
+
+// =======================================================================
+//  DEPLOY HISTORY
+// =======================================================================
+function renderDeploys(history) {
+  const list = $('deploy-list');
+  if (!history.length) {
+    list.innerHTML = '<div style="color:var(--text-dim);font-size:0.83rem;">Chưa có lịch sử.</div>';
+    return;
+  }
+  list.innerHTML = history.map(d => {
+    const ok = d.status === 'success';
+    return `
+    <div class="deploy-item">
+      <span style="font-size:1.1rem">${ok ? '✅' : '❌'}</span>
+      <div>
+        <div class="deploy-commit">${d.commit || '—'}</div>
+        <div class="deploy-time">${timeAgo(d.timestamp)}</div>
+      </div>
+      <span class="badge ${ok ? 'badge-green' : 'badge-red'}">${d.status}</span>
+      <span class="deploy-dur">${d.duration || ''}</span>
+    </div>`;
+  }).join('');
+}
+
+// =======================================================================
+//  LOG VIEWER
+// =======================================================================
+function classifyLog(line) {
+  const l = line.toLowerCase();
+  if (/error|exception|critical|fatal|traceback/.test(l))   return 'error';
+  if (/warning|warn|deprecated/.test(l))                    return 'warning';
+  if (/success|started|ready|connected|✅/.test(l))         return 'success';
+  if (/info\b|get |post |put |delete /.test(l))             return 'info';
+  return 'default';
+}
+
+async function fetchLogs() {
+  try {
+    const svc = currentSvc === 'all' ? '' : `?service=${currentSvc}&lines=60`;
+    const url = currentSvc === 'all'
+      ? `${API_BASE}/api/logs?lines=60`
+      : `${API_BASE}/api/logs?service=${currentSvc}&lines=60`;
+
+    const res  = await fetch(url, { signal: AbortSignal.timeout(6000) });
+    const data = await res.json();
+    renderLogs(data.lines || []);
+  } catch (err) {
+    console.warn('Log fetch failed:', err.message);
+  }
+}
+
+function renderLogs(lines) {
+  const out = $('log-output');
+  const q   = searchQuery.toLowerCase();
+
+  let filtered = lines;
+  if (errorsOnly) filtered = filtered.filter(l => /error|exception|critical|warning/i.test(l));
+  if (q)         filtered = filtered.filter(l => l.toLowerCase().includes(q));
+
+  if (!filtered.length) {
+    out.innerHTML = '<span class="log-line default">Không có log phù hợp.</span>';
+    return;
+  }
+
+  out.innerHTML = filtered.map(line => {
+    const cls   = classifyLog(line);
+    const safe  = line.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const highlighted = q
+      ? safe.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'), 'gi'),
+          m => `<mark style="background:rgba(99,102,241,0.35);border-radius:2px">${m}</mark>`)
+      : safe;
+    return `<span class="log-line ${cls}">${highlighted}</span>`;
+  }).join('\n');
+
+  // Auto-scroll to bottom
+  out.scrollTop = out.scrollHeight;
+}
+
+// =======================================================================
+//  EVENT LISTENERS
+// =======================================================================
+// Service filter buttons
+document.querySelectorAll('.log-filter-btn[data-svc]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.log-filter-btn[data-svc]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSvc = btn.dataset.svc;
+    fetchLogs();
+  });
+});
+
+// Errors only toggle
+$('log-errors-only').addEventListener('click', function() {
+  errorsOnly = !errorsOnly;
+  this.classList.toggle('active', errorsOnly);
+  fetchLogs();
+});
+
+// Search
+$('log-search').addEventListener('input', e => {
+  searchQuery = e.target.value.trim();
+  fetchLogs();
+});
+
+// =======================================================================
+//  INIT & AUTO-REFRESH
+// =======================================================================
+(async function init() {
+  await fetchOverview();
+  await fetchLogs();
+
+  setInterval(fetchOverview, REFRESH_MS);
+  setInterval(fetchLogs,     LOG_REFRESH);
+})();
+</script>
+</body>
+</html>

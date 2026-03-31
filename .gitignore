@@ -1,34 +1,55 @@
-venv/
-
-__pycache__/
-*.pyc
-
-*.log
-
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-node_modules/
-
-dist/
-build/
-
+# Environment Variables
 .env
 .env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*.local
 
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
+# Logs
+logs/
+*.log
+*.log.*
 
-coverage/
-alembic/versions/*
-!.gitkeep
+# Backups
+.backups/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+venv/
+.venv/
+env/
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Node
+node_modules/
+/frontend/build/
+/frontend/.env.development.local
+/frontend/.env.production.local
+
+# Docker
+.docker/
+
+# IDE
+# .vscode/settings.json
+.vscode
+.idea/
 *.swp
 *.swo
-*.swx
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test & Coverage
+.coverage
+htmlcov/
+.tox/
+
+# Alembic (giữ các migration files quan trọng)
+backend/alembic/versions/__pycache__/
+
+*.md
