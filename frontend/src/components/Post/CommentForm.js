@@ -1,9 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 import styled from 'styled-components';
-import { sendRequest } from '../../utils/axiosConfig';
-
-
 const CommentFormWrapper = styled.div`
     margin-top: 20px;
     background-color: #f9f9f9;

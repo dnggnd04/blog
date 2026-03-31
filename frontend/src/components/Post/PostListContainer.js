@@ -38,7 +38,6 @@ function PostListContainer() {
 
 		callApi()
 
-		const protocol = window.location.protocol === "https:" ? "wss" : "ws";
 		const wsUrl = process.env.REACT_APP_WS_URL.startsWith("ws")
         			? process.env.REACT_APP_WS_URL
         			: `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}${process.env.REACT_APP_WS_URL}`;

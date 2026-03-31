@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import api, { sendRequest } from '../../utils/axiosConfig';
+import { sendRequest } from '../../utils/axiosConfig';
 import PostDetail from './PostDetail';
 
 function PostDetailContainer() {
@@ -27,7 +27,6 @@ function PostDetailContainer() {
         };
         callApi(id)
 
-        const protocol = window.location.protocol === "https:" ? "wss" : "ws";
         const wsUrl = process.env.REACT_APP_WS_URL.startsWith("ws")
         			? process.env.REACT_APP_WS_URL
         			: `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}${process.env.REACT_APP_WS_URL}`;
