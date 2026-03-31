@@ -30,6 +30,10 @@ def get_application():
     application.include_router(router, prefix=settings.API_PREFIX)
     application.include_router(websocket_router, prefix=settings.WEBSOCKET_PREFIX)
 
+    @application.get("/health")
+    def health_check():
+        return {"status": "ok"}
+
     return application
 
 app = get_application()
