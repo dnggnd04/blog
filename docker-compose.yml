@@ -127,7 +127,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       # Đọc /proc để lấy CPU/RAM metrics
       - /proc:/host/proc:ro
-      - logs_data:/app/logs:ro
+      - ./logs:/app/logs:ro
     environment:
       - MONITORING_PORT=8080
     healthcheck:

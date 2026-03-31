@@ -168,11 +168,27 @@ def get_deploy_history(limit: int = 10) -> list[dict]:
 
 
 def get_recent_logs(service: str = None, lines: int = 50) -> list[str]:
-    cmd = ["docker", "compose", "logs", "--tail", str(lines), "--no-log-prefix"]
-    if service:
-        cmd.append(service)
-    output = run_cmd(cmd, timeout=8)
-    return output.splitlines()[-lines:] if output else []
+    svc_map = {
+        "backend": "blog_be",
+        "frontend": "blog_fe",
+        "db": "blog-db"
+    }
+    
+    if service and service != "all":
+        target = svc_map.get(service, service)
+        cmd = ["docker", "logs", "--tail", str(lines), target]
+        output = run_cmd(cmd, timeout=8)
+        return output.splitlines()[-lines:] if output else []
+    
+    # Nếu lấy "all", lấy 20 lines từ mọi container đang chạy
+    output = run_cmd(["docker", "ps", "--format", "{{.Names}}"])
+    all_logs = []
+    if output:
+        for c in output.splitlines():
+            out = run_cmd(["docker", "logs", "--tail", "20", c])
+            if out:
+                all_logs.extend([f"[{c}] " + l for l in out.splitlines()[-20:]])
+    return all_logs[-lines:] if all_logs else []
 
 
 # =============================================================================
