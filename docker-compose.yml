@@ -1,5 +1,3 @@
-version: '3.8'
-
 # ──────────────────────────────────────────────────────────────
 #  Blog App — Docker Compose
 #  Stack: FastAPI + React + MySQL + Monitoring Dashboard
