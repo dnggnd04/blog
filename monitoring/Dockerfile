@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Cài các system deps cần thiết để gọi docker & đọc /proc
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+    curl docker.io docker-compose-v2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Cài Python deps
