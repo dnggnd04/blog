@@ -138,7 +138,6 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     environment:
       name: production
-      url: http://${{ secrets.VM_HOST }}
 
     steps:
       - name: 📥 Checkout code
