@@ -6,7 +6,7 @@ RUN npm ci --prefer-offline
 # Khai báo build args — nhận từ docker-compose / CI
 # Phải khai báo trước COPY . . để Docker cache layer đúng cách
 ARG REACT_APP_API_URL=/api
-ARG REACT_APP_WS_URL=ws://localhost:8000/ws
+ARG REACT_APP_WS_URL=/ws
 
 # Biến môi trường sẽ được bake vào bundle lúc build
 ENV REACT_APP_API_URL=$REACT_APP_API_URL

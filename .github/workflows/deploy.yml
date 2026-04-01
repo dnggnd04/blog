@@ -159,8 +159,8 @@ jobs:
           SECRET_KEY=${{ secrets.SECRET_KEY }}
 
           # ── Frontend (build-time args) ─────────────────
-          REACT_APP_API_URL=/api
-          REACT_APP_WS_URL=ws://${{ secrets.VM_HOST }}
+          REACT_APP_API_URL=${{ secrets.REACT_APP_API_URL || '/api' }}
+          REACT_APP_WS_URL=${{ secrets.REACT_APP_WS_URL || '/ws' }}
 
           # ── Monitoring ────────────────────────────────
           MONITORING_PORT=8080
