@@ -6,6 +6,7 @@ from app.schemas.sche_user import LoginRequest
 from app.schemas.sche_token import Token
 from app.services.srv_user import UserService
 from app.core.security import create_access_token, create_refresh_token
+from app.core.config import settings
 
 router = APIRouter()
 
