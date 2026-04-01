@@ -110,6 +110,28 @@ services:
       start_period: 15s
 
   # ──────────────────────────────────────────────
+  #  CLOUDFLARE TUNNEL — Blog Tunnel
+  # ──────────────────────────────────────────────
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    container_name: blog-tunnel
+    restart: always
+    networks:
+      - blog-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    command: tunnel --no-autoupdate run --token ${TUNNEL_TOKEN}
+
+  # ──────────────────────────────────────────────
   #  MONITORING — FastAPI Dashboard (port 8080)
   # ──────────────────────────────────────────────
   monitoring:

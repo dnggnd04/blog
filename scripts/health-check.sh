@@ -145,7 +145,7 @@ OVERALL_STATUS=0
 # Chạy các kiểm tra
 check_container "Backend"    "blog_be"   || OVERALL_STATUS=1
 check_container "Frontend"   "blog_fe"   || OVERALL_STATUS=1
-check_container "Database"   "blog-db-1" || true   # tên container có thể thay đổi
+check_container "Database"   "blog-db"   || OVERALL_STATUS=1   # Đã fix thành blog-db cho chuẩn với compose
 
 check_http "Backend API"      "${BACKEND_URL}"    "200" || OVERALL_STATUS=1
 check_http "Frontend"         "${FRONTEND_URL}"   "200" || OVERALL_STATUS=1

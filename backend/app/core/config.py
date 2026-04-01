@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     WEBSOCKET_PREFIX = os.getenv("WEBSOCKET_PREFIX", '')
     BACKEND_CORS_ORIGINS: str = os.getenv("BACKEND_CORS_ORIGINS", '')
     DATABASE_URL = os.getenv("DATABASE_URL", '')
-    ACCESS_TOKEN_EXPIRE_SECONDS : int = 60 * 3
+    ACCESS_TOKEN_EXPIRE_SECONDS : int = 60 * 60 # 1 hour
     REFRESH_TOKEN_EXPIRE_SECONDS : int = 60 * 60 * 24 * 7
     SECURITY_ALGORITHM = 'HS256'
     LOGGING_CONFIG_FILE = os.path.join(BASE_DIR, 'logging.ini')

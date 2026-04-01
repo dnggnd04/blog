@@ -35,7 +35,7 @@ async def login(
         httponly = True,
         secure = True,
         samesite = "strict",
-        max_age = 60 * 60 * 24 * 7
+        max_age = settings.REFRESH_TOKEN_EXPIRE_SECONDS
     )
 
     return DataResponse().success_response(
