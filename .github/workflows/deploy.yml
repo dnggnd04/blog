@@ -179,11 +179,6 @@ jobs:
           EOF
           echo "✅ .env generated with $(wc -l < .env) lines"
 
-      - name: 🏗️ Build Docker images
-        run: |
-          echo "📦 Building all Docker images..."
-          docker compose build --no-cache --parallel
-
       - name: 💾 Save rollback snapshot
         run: |
           echo "📸 Saving current container state for rollback..."

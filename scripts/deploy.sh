@@ -140,7 +140,7 @@ if [ "${SKIP_BUILD}" = false ]; then
   log "Bước 4/7: Build Docker images..."
   BUILD_START=$(date +%s)
 
-  docker compose build --no-cache --parallel 2>&1 | while IFS= read -r line; do
+  docker compose build --no-cache 2>&1 | while IFS= read -r line; do
     echo "  [BUILD] ${line}" | tee -a "${DEPLOY_LOG}"
   done
 
