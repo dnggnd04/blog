@@ -4,6 +4,13 @@ import uuid
 from typing import Any, Union
 from app.core.config import settings
 from datetime import datetime, timedelta, timezone
+import bcrypt
+# Monkeypatch bcrypt to prevent passlib's trapped AttributeError with bcrypt >= 4.1.0
+if not hasattr(bcrypt, "__about__"):
+    class AboutModule:
+        __version__ = getattr(bcrypt, "__version__", "4.0.0")
+    bcrypt.__about__ = AboutModule()
+
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
